@@ -49,7 +49,7 @@ def create_browser_instance(bot_id, link, screenshot_dir):
     chrome_options.add_argument(
         '--js-flags="--max-old-space-size=128"')  # Limits the memory used by the JavaScript engine
     chrome_options.add_argument('--no-zygote')  # Disables zygote process for Chrome
-    chrome_options.add_argument('--single-process')
+   #chrome_options.add_argument('--single-process')
     chrome_options.add_argument('--renderer-process-limit=1')
     chrome_options.add_argument('--disable-extensions')
     chrome_options.add_argument('--disable-software-rasterizer')
