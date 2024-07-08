@@ -43,6 +43,7 @@ def create_browser_instance(bot_id, link, screenshot_dir):
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
     chrome_options.add_argument("--use-fake-ui-for-media-stream")
+    chrome_options.add_argument("--use-file-for-fake-video-capture=./test-video.y4m")
     chrome_options.add_argument('--aggressive-cache-discard')
     chrome_options.add_argument('--disable-cache')
     chrome_options.add_argument('--disable-application-cache')
@@ -97,6 +98,15 @@ def create_browser_instance(bot_id, link, screenshot_dir):
                 if attempt == confirmation_attempts - 1:
                     print(f"{bot_name}: Failed to confirm session join after retries.")
                     return
+
+        # Open camera for the first 10 bots only
+        if bot_id <= 10:
+            try:
+                camera_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.footer-button[data-action="open-cam"]')))
+                camera_button.click()
+                print(f"{bot_name}: Opened camera.")
+            except TimeoutException:
+                print(f"{bot_name}: Camera button not found.")
 
         with bots_in_session_lock:
             bots_in_session += 1
