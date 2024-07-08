@@ -42,6 +42,7 @@ def create_browser_instance(bot_id, link, screenshot_dir):
     chrome_options.add_experimental_option("useAutomationExtension", False)
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
+    chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.media_stream_camera": 1})
     chrome_options.add_argument("--use-fake-ui-for-media-stream")
     chrome_options.add_argument("--use-file-for-fake-video-capture=./test-video.y4m")
     chrome_options.add_argument('--aggressive-cache-discard')
