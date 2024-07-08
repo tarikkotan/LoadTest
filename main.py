@@ -56,7 +56,7 @@ def create_browser_instance(bot_id, link, screenshot_dir):
     chrome_options.add_argument('--disable-client-side-phishing-detection')
     chrome_options.add_argument('--disable-default-apps')
     chrome_options.add_argument('--disable-translate')
-    chrome_options.add_argument('--no-first-run)
+    chrome_options.add_argument('--no-first-run')
     chrome_options.add_argument('--metrics-recording-only')
     chrome_options.add_argument('--disable-blink-features=AutomationControlled')
                                 
