@@ -238,9 +238,13 @@ def main():
     screenshot_dir = "screenshots"
     os.makedirs(screenshot_dir, exist_ok=True)
 
-    for bot_id, link in enumerate(links, start=1):
+   # Check if there are more links than the number of bots specified and adjust if necessary
+    max_bots = min(len(links), num_bots)
+    
+    for bot_id in range(1, max_bots + 1):
+        link = links[bot_id - 1]  # Adjust index for 0-based list indexing
         print(f"Starting Bot {bot_id} for link: {link}")
-        bot_thread = Thread(target=create_browser_instance, args=(bot_id, link, screenshot_dir,open_camera))
+        bot_thread = Thread(target=create_browser_instance, args=(bot_id, link, screenshot_dir, open_camera))
         bot_thread.start()
 
         # Wait for the bot to join the session before starting the next one
