@@ -128,8 +128,9 @@ def create_browser_instance(bot_id, link, screenshot_dir,open_camera):
            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_session_screenshot.png")
            driver.save_screenshot(screenshot_path)
            print(f"{bot_name}: Screenshot saved to {screenshot_path}")
-
-           allow_camera_permissions(driver)
+            
+           if open_camera:
+               allow_camera_permissions(driver)
 
            # Ensure the cookie banner is visible
            wait.until(EC.visibility_of_element_located((By.ID,"cm")))
