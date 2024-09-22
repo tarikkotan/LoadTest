@@ -27,6 +27,10 @@ with open('config.json', 'r') as config_file:
 num_bots = config_data['num_bots']
 session_duration = config_data['session_duration']
 open_camera = config_data['open_camera']
+vote = config_data['vote']
+vote_time = config_data['vote_time']
+
+vote_time_strp = datetime.strptime(vote_time , "%Y-%m-%d %H:%M:%S")
 
 def read_links_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -166,6 +170,22 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
             except (TimeoutException, NoSuchElementException) as e:
                 log_with_timestamp(f"{bot_name}: Camera button not found or could not be clicked - {e}")
+                 
+        
+        if vote:
+            while datetime.now() < vote_time_strp:
+                log_with_timestamp(f"{bot_name}: Waiting for the vote time.")
+                time.sleep(60) 
+            try:
+                option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
+                option_css.click()
+                log_with_timestamp(f"{bot_name}: Option A selected.")
+
+                send_button_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.answer-button")))
+                send_button_css.click()
+                log_with_timestamp(f"{bot_name}: Sent the answer.")
+            except TimeoutException:
+                log_with_timestamp(f"{bot_name}: can not send the answer.")        
 
         with bots_in_session_lock:
             bots_in_session += 1
