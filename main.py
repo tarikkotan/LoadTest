@@ -144,6 +144,9 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
                 break
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_confirm_session_exception_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(
                     f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
                 if attempt == confirmation_attempts - 1:
