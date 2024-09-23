@@ -78,20 +78,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         driver.get(link)
         log_with_timestamp(f"{bot_name}: Opened link: {link}")
         time.sleep(1)
-
-        for attempt in range(3):
-            try:
-                continue_button = wait.until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.btn.btn-secondary.pointer')))
-                continue_button.click()
-                log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
-                break
-            except TimeoutException:
-                log_with_timestamp(f"{bot_name}: Retrying 'Continue anyway' button click. Attempt {attempt + 1}")
-                if attempt == 2:
-                    log_with_timestamp(f"{bot_name}: 'Continue anyway' button not present after multiple attempts.")
-        if open_camera:
-            try:
+        try:
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_session_screenshot.png")
                 driver.save_screenshot(screenshot_path)
                 log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
@@ -112,17 +99,34 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
                 log_with_timestamp(f"{bot_name}: Clicked the close button on the modal.")
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_popup_screenshot.png")
+                driver.save_screenshot(screenshot_path)
                 log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
             except Exception as e:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_cookies_screenshot.png")
+                driver.save_screenshot(screenshot_path)
                 log_with_timestamp(f"{bot_name}: An error occurred while clicking the cookies button - {e}")
 
-        try:
-            time.sleep(1)
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button-container')))
-            driver.execute_script("document.querySelector('div.perculus-button-container').click();")
-            log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
-        except TimeoutException:
-            log_with_timestamp(f"{bot_name}: 'Join Session' button not present.")
+
+        for attempt in range(3):
+            try:
+                continue_button = wait.until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.btn.btn-secondary.pointer')))
+                continue_button.click()
+                log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
+                break
+            except TimeoutException:
+                log_with_timestamp(f"{bot_name}: Retrying 'Continue anyway' button click. Attempt {attempt + 1}")
+                if attempt == 2:
+                    log_with_timestamp(f"{bot_name}: 'Continue anyway' button not present after multiple attempts.")
+        if open_camera:                
+            try:
+                time.sleep(1)
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button-container')))
+                driver.execute_script("document.querySelector('div.perculus-button-container').click();")
+                log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
+            except TimeoutException:
+                log_with_timestamp(f"{bot_name}: 'Join Session' button not present.")
 
         confirmation_attempts = 5
         for attempt in range(confirmation_attempts):
@@ -185,6 +189,8 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
                 send_button_css.click()
                 log_with_timestamp(f"{bot_name}: Sent the answer.")
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_answer_not_send_screenshot.png")
+                driver.save_screenshot(screenshot_path)
                 log_with_timestamp(f"{bot_name}: can not send the answer.")        
 
         with bots_in_session_lock:
