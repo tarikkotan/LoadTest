@@ -115,7 +115,7 @@ def perform_action(bot_id, driver, bot_name):
                 send_button_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.answer-button")))
                 send_button_css.click()
                 log_with_timestamp(f"{bot_name}: Sent the answer.")
-            except TimeoutException:
+            except (TimeoutException, NoSuchElementException, Exception):
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_answer_not_sent_screenshot.png")
                 driver.save_screenshot(screenshot_path)
                 log_with_timestamp(f"{bot_name}: Cannot send the answer.")
