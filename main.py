@@ -119,6 +119,9 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
                 log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
                 break
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_continue_anyway_exception_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(f"{bot_name}: Retrying 'Continue anyway' button click. Attempt {attempt + 1}")
                 if attempt == 2:
                     log_with_timestamp(f"{bot_name}: 'Continue anyway' button not present after multiple attempts.")
