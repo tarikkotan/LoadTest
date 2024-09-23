@@ -102,6 +102,32 @@ def perform_action(bot_id, driver, bot_name):
             else:
                 time.sleep(2)  # Wait a little before retrying
 
+        if vote:
+            if datetime.now() < vote_time_strp:
+                while datetime.now() < vote_time_strp:
+                    log_with_timestamp(f"{bot_name}: Waiting for the vote time.")
+                    time.sleep(60)
+            try:
+                option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
+                option_css.click()
+                log_with_timestamp(f"{bot_name}: Option A selected.")
+
+                send_button_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.answer-button")))
+                send_button_css.click()
+                log_with_timestamp(f"{bot_name}: Sent the answer.")
+            except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_answer_not_sent_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Cannot send the answer.")
+                retry_count += 1
+                log_with_timestamp(f"{bot_name}: Exception occurred - {e}. Retry {retry_count}/{max_retries}.")
+
+                if retry_count == max_retries:
+                    log_with_timestamp(f"{bot_name}: Max retry attempts reached. Aborting operation.")
+                else:
+                    time.sleep(2)  # Wait a little before retrying
+
+
 def create_browser_instance(bot_id, link, open_camera):
     global bots_in_session
     bot_name = f"Bot_{bot_id}"
