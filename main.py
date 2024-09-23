@@ -18,23 +18,28 @@ bot_start_condition = Condition()
 camera_clicks = 0
 camera_clicks_lock = Lock()
 
+
 def log_with_timestamp(message):
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+
 
 with open('config.json', 'r') as config_file:
     config_data = json.load(config_file)
 
 num_bots = config_data['num_bots']
+batch_size = config_data['batch_size']
 session_duration = config_data['session_duration']
 open_camera = config_data['open_camera']
 vote = config_data['vote']
 vote_time = config_data['vote_time']
 
-vote_time_strp = datetime.strptime(vote_time , "%Y-%m-%d %H:%M:%S")
+vote_time_strp = datetime.strptime(vote_time, "%Y-%m-%d %H:%M:%S")
+
 
 def read_links_from_file(file_path):
     with open(file_path, 'r') as file:
         return [line.strip() for line in file.readlines()]
+
 
 def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
     global bots_in_session
@@ -107,22 +112,25 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
             driver.save_screenshot(screenshot_path)
             log_with_timestamp(f"{bot_name}: An error occurred while clicking the cookies button - {e}")
 
-
         for attempt in range(3):
             try:
+                time.sleep(5)
                 continue_button = wait.until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.btn.btn-secondary.pointer')))
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.perculus-button')))
                 continue_button.click()
                 log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
                 break
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_continue_anyway_exception_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(f"{bot_name}: Retrying 'Continue anyway' button click. Attempt {attempt + 1}")
                 if attempt == 2:
                     log_with_timestamp(f"{bot_name}: 'Continue anyway' button not present after multiple attempts.")
-        if open_camera:                
+        if open_camera:
             try:
                 time.sleep(1)
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button-container')))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button')))
                 driver.execute_script("document.querySelector('div.perculus-button-container').click();")
                 log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
             except TimeoutException:
@@ -132,7 +140,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         for attempt in range(confirmation_attempts):
             try:
                 session_confirm_element = wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.footer-button[data-action="open-cam"]')))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-action="open-cam"]')))
                 log_with_timestamp(f"{bot_name}: Confirmed session join.")
                 time.sleep(1)
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_session_screenshot.png")
@@ -141,7 +149,11 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
                 break
             except TimeoutException:
-                log_with_timestamp(f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_confirm_session_exception_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                log_with_timestamp(
+                    f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
                 if attempt == confirmation_attempts - 1:
                     log_with_timestamp(f"{bot_name}: Failed to confirm session join after retries.")
                     return
@@ -174,12 +186,11 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
             except (TimeoutException, NoSuchElementException) as e:
                 log_with_timestamp(f"{bot_name}: Camera button not found or could not be clicked - {e}")
-                 
-        
+
         if vote:
             while datetime.now() < vote_time_strp:
                 log_with_timestamp(f"{bot_name}: Waiting for the vote time.")
-                time.sleep(60) 
+                time.sleep(60)
             try:
                 option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
                 option_css.click()
@@ -191,7 +202,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
             except TimeoutException:
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_answer_not_send_screenshot.png")
                 driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: can not send the answer.")        
+                log_with_timestamp(f"{bot_name}: can not send the answer.")
 
         with bots_in_session_lock:
             bots_in_session += 1
@@ -214,13 +225,12 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
     log_with_timestamp(f"Bot_{bot_id}: Task completed.")
 
+
 def main():
     file_path = 'session_links.txt'
     links = read_links_from_file(file_path)
     screenshot_dir = "screenshots"
     os.makedirs(screenshot_dir, exist_ok=True)
-
-    batch_size = 10  # Number of bots to start per batch
     max_bots = min(len(links), num_bots)
 
     for i in range(0, max_bots, batch_size):
@@ -244,8 +254,5 @@ def main():
     log_with_timestamp("All bots processed.")
 
 
-
-
 if __name__ == "__main__":
     main()
-
