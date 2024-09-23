@@ -139,7 +139,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         for attempt in range(confirmation_attempts):
             try:
                 session_confirm_element = wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.footer-button[data-action="open-cam"]')))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-action='open-cam']')))
                 log_with_timestamp(f"{bot_name}: Confirmed session join.")
                 time.sleep(1)
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_session_screenshot.png")
