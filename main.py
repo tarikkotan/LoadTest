@@ -18,8 +18,10 @@ bot_start_condition = Condition()
 camera_clicks = 0
 camera_clicks_lock = Lock()
 
+
 def log_with_timestamp(message):
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+
 
 with open('config.json', 'r') as config_file:
     config_data = json.load(config_file)
@@ -30,11 +32,13 @@ open_camera = config_data['open_camera']
 vote = config_data['vote']
 vote_time = config_data['vote_time']
 
-vote_time_strp = datetime.strptime(vote_time , "%Y-%m-%d %H:%M:%S")
+vote_time_strp = datetime.strptime(vote_time, "%Y-%m-%d %H:%M:%S")
+
 
 def read_links_from_file(file_path):
     with open(file_path, 'r') as file:
         return [line.strip() for line in file.readlines()]
+
 
 def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
     global bots_in_session
@@ -79,34 +83,33 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         log_with_timestamp(f"{bot_name}: Opened link: {link}")
         time.sleep(1)
         try:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_session_screenshot.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_session_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
-                wait.until(EC.visibility_of_element_located((By.ID, "cm")))
+            wait.until(EC.visibility_of_element_located((By.ID, "cm")))
 
-                cookies_button = wait.until(EC.visibility_of_element_located((By.ID, "c-p-bn")))
-                log_with_timestamp(f"{bot_name}: Cookies button is visible.")
+            cookies_button = wait.until(EC.visibility_of_element_located((By.ID, "c-p-bn")))
+            log_with_timestamp(f"{bot_name}: Cookies button is visible.")
 
-                driver.execute_script("arguments[0].scrollIntoView(true);", cookies_button)
-                log_with_timestamp(f"{bot_name}: Scrolled cookies button into view.")
+            driver.execute_script("arguments[0].scrollIntoView(true);", cookies_button)
+            log_with_timestamp(f"{bot_name}: Scrolled cookies button into view.")
 
-                cookies_button = wait.until(EC.element_to_be_clickable((By.ID, "c-p-bn")))
-                log_with_timestamp(f"{bot_name}: Cookies button is clickable.")
+            cookies_button = wait.until(EC.element_to_be_clickable((By.ID, "c-p-bn")))
+            log_with_timestamp(f"{bot_name}: Cookies button is clickable.")
 
-                cookies_button.click()
-                log_with_timestamp(f"{bot_name}: Accepted cookies.")
+            cookies_button.click()
+            log_with_timestamp(f"{bot_name}: Accepted cookies.")
 
-                log_with_timestamp(f"{bot_name}: Clicked the close button on the modal.")
-            except TimeoutException:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_popup_screenshot.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
-            except Exception as e:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_cookies_screenshot.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: An error occurred while clicking the cookies button - {e}")
-
+            log_with_timestamp(f"{bot_name}: Clicked the close button on the modal.")
+        except TimeoutException:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_popup_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
+        except Exception as e:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_cookies_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: An error occurred while clicking the cookies button - {e}")
 
         for attempt in range(3):
             try:
@@ -119,7 +122,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
                 log_with_timestamp(f"{bot_name}: Retrying 'Continue anyway' button click. Attempt {attempt + 1}")
                 if attempt == 2:
                     log_with_timestamp(f"{bot_name}: 'Continue anyway' button not present after multiple attempts.")
-        if open_camera:                
+        if open_camera:
             try:
                 time.sleep(1)
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button-container')))
@@ -141,7 +144,8 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
                 break
             except TimeoutException:
-                log_with_timestamp(f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
+                log_with_timestamp(
+                    f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
                 if attempt == confirmation_attempts - 1:
                     log_with_timestamp(f"{bot_name}: Failed to confirm session join after retries.")
                     return
@@ -174,12 +178,11 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
             except (TimeoutException, NoSuchElementException) as e:
                 log_with_timestamp(f"{bot_name}: Camera button not found or could not be clicked - {e}")
-                 
-        
+
         if vote:
             while datetime.now() < vote_time_strp:
                 log_with_timestamp(f"{bot_name}: Waiting for the vote time.")
-                time.sleep(60) 
+                time.sleep(60)
             try:
                 option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
                 option_css.click()
@@ -191,7 +194,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
             except TimeoutException:
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_answer_not_send_screenshot.png")
                 driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: can not send the answer.")        
+                log_with_timestamp(f"{bot_name}: can not send the answer.")
 
         with bots_in_session_lock:
             bots_in_session += 1
@@ -213,6 +216,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         log_with_timestamp(f"{bot_name}: Browser instance closed.")
 
     log_with_timestamp(f"Bot_{bot_id}: Task completed.")
+
 
 def main():
     file_path = 'session_links.txt'
@@ -244,8 +248,5 @@ def main():
     log_with_timestamp("All bots processed.")
 
 
-
-
 if __name__ == "__main__":
     main()
-
