@@ -113,6 +113,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
 
         for attempt in range(3):
             try:
+                time.sleep(5)
                 continue_button = wait.until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.btn.btn-secondary.pointer')))
                 continue_button.click()
