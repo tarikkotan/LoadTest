@@ -57,53 +57,50 @@ def read_links_from_file(file_path):
 def perform_action(bot_id, driver, bot_name):
     global screenshot_dir, open_camera, vote, vote_time_strp
     wait = WebDriverWait(driver, 15)
+    max_retries = 3  # Maximum retry attempts
+    retry_count = 0
+
     # Perform the action that was previously after session confirmation
-    if bot_id <= 15 and open_camera:
+    while retry_count < max_retries:
         try:
-            time.sleep(2)
-            camera_button = wait.until(EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, 'div.footer-button.icon-background-image[data-action="open-cam"]')))
-            driver.execute_script("arguments[0].scrollIntoView(true);", camera_button)
-            for _ in range(5):
-                try:
-                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_camera_screenshot.png")
-                    driver.save_screenshot(screenshot_path)
-                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-                    camera_button.click()
-                    time.sleep(3)
-                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_after_camera_screenshot.png")
-                    driver.save_screenshot(screenshot_path)
-                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+            if bot_id <= 15 and open_camera:
+                time.sleep(2)
+                camera_button = wait.until(EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'div.footer-button.icon-background-image[data-action="open-cam"]')))
+                driver.execute_script("arguments[0].scrollIntoView(true);", camera_button)
+                
+                for _ in range(5):
+                    try:
+                        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_camera_screenshot.png")
+                        driver.save_screenshot(screenshot_path)
+                        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                        camera_button.click()
+                        time.sleep(3)
+                        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_after_camera_screenshot.png")
+                        driver.save_screenshot(screenshot_path)
+                        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
-                    log_with_timestamp(f"{bot_name}: Opened camera via JavaScript.")
-                    break
-                except ElementClickInterceptedException:
-                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_camera_exception_screenshot.png")
-                    driver.save_screenshot(screenshot_path)
-                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-                    log_with_timestamp(f"{bot_name}: Retrying camera button click.")
-                    time.sleep(1)
+                        log_with_timestamp(f"{bot_name}: Opened camera via JavaScript.")
+                        break
+                    except ElementClickInterceptedException:
+                        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_camera_exception_screenshot.png")
+                        driver.save_screenshot(screenshot_path)
+                        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                        log_with_timestamp(f"{bot_name}: Retrying camera button click.")
+                        time.sleep(1)
 
-        except (TimeoutException, NoSuchElementException) as e:
-            log_with_timestamp(f"{bot_name}: Camera button not found or could not be clicked - {e}")
+                # If everything goes fine, break out of retry loop
+                log_with_timestamp(f"{bot_name}: Action performed successfully.")
+                break
+            
+        except (TimeoutException, NoSuchElementException, Exception) as e:
+            retry_count += 1
+            log_with_timestamp(f"{bot_name}: Exception occurred - {e}. Retry {retry_count}/{max_retries}.")
 
-    if vote:
-        if datetime.now() < vote_time_strp:
-            while datetime.now() < vote_time_strp:
-                log_with_timestamp(f"{bot_name}: Waiting for the vote time.")
-                time.sleep(60)
-        try:
-            option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
-            option_css.click()
-            log_with_timestamp(f"{bot_name}: Option A selected.")
-
-            send_button_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.answer-button")))
-            send_button_css.click()
-            log_with_timestamp(f"{bot_name}: Sent the answer.")
-        except TimeoutException:
-            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_answer_not_sent_screenshot.png")
-            driver.save_screenshot(screenshot_path)
-            log_with_timestamp(f"{bot_name}: Cannot send the answer.")
+            if retry_count == max_retries:
+                log_with_timestamp(f"{bot_name}: Max retry attempts reached. Aborting operation.")
+            else:
+                time.sleep(2)  # Wait a little before retrying
 
 def create_browser_instance(bot_id, link, open_camera):
     global bots_in_session
