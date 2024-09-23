@@ -1,5 +1,6 @@
 {
-    "num_bots": 10,
+    "num_bots": 100,
+    "batch_size": 10,
     "session_duration": 1000,
     "open_camera":false,
     "vote":true,
