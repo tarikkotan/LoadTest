@@ -27,6 +27,7 @@ with open('config.json', 'r') as config_file:
     config_data = json.load(config_file)
 
 num_bots = config_data['num_bots']
+batch_size = config_data['batch_size']
 session_duration = config_data['session_duration']
 open_camera = config_data['open_camera']
 vote = config_data['vote']
@@ -230,8 +231,6 @@ def main():
     links = read_links_from_file(file_path)
     screenshot_dir = "screenshots"
     os.makedirs(screenshot_dir, exist_ok=True)
-
-    batch_size = 10  # Number of bots to start per batch
     max_bots = min(len(links), num_bots)
 
     for i in range(0, max_bots, batch_size):
