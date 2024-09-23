@@ -277,7 +277,6 @@ def main():
     max_bots = min(len(links), num_bots)
 
     bot_threads = []
-    batch_size = 10  # Process bots in batches of 10
 
     try:
         for i in range(0, max_bots, batch_size):
