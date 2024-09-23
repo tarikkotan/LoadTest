@@ -31,10 +31,8 @@ bot_join_condition = Condition()
 # Event to signal threads to stop
 stop_event = Event()
 
-
 def log_with_timestamp(message):
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
-
 
 with open('config.json', 'r') as config_file:
     config_data = json.load(config_file)
@@ -52,11 +50,9 @@ vote_time_strp = datetime.strptime(vote_time, "%Y-%m-%d %H:%M:%S")
 screenshot_dir = "screenshots"
 os.makedirs(screenshot_dir, exist_ok=True)
 
-
 def read_links_from_file(file_path):
     with open(file_path, 'r') as file:
         return [line.strip() for line in file.readlines()]
-
 
 def perform_action(bot_id, driver, bot_name):
     global screenshot_dir, open_camera, vote, vote_time_strp
@@ -72,7 +68,7 @@ def perform_action(bot_id, driver, bot_name):
                 camera_button = wait.until(EC.element_to_be_clickable(
                     (By.CSS_SELECTOR, 'div.footer-button.icon-background-image[data-action="open-cam"]')))
                 driver.execute_script("arguments[0].scrollIntoView(true);", camera_button)
-
+                
                 for _ in range(5):
                     try:
                         screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_camera_screenshot.png")
@@ -96,7 +92,7 @@ def perform_action(bot_id, driver, bot_name):
                 # If everything goes fine, break out of retry loop
                 log_with_timestamp(f"{bot_name}: Action performed successfully.")
                 break
-
+            
         except (TimeoutException, NoSuchElementException, Exception) as e:
             retry_count += 1
             log_with_timestamp(f"{bot_name}: Exception occurred - {e}. Retry {retry_count}/{max_retries}.")
@@ -105,7 +101,6 @@ def perform_action(bot_id, driver, bot_name):
                 log_with_timestamp(f"{bot_name}: Max retry attempts reached. Aborting operation.")
             else:
                 time.sleep(2)  # Wait a little before retrying
-
 
 def create_browser_instance(bot_id, link, open_camera):
     global bots_in_session
@@ -212,24 +207,23 @@ def create_browser_instance(bot_id, link, open_camera):
                 driver.save_screenshot(screenshot_path)
                 log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
-                # Successfully joined, update bot_map
-                with bot_map_lock:
-                    bot_map[bot_id] = driver  # Store only successful bots
-                    with bot_join_condition:
-                        bot_join_condition.notify_all()  # Notify all threads
                 break
-
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_confirm_session_exception_screenshot.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(
                     f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
                 if attempt == confirmation_attempts - 1:
-                    # Failed to join, but update the condition
-                    with bot_map_lock:
-                        bot_map[bot_id] = None  # Mark bot as failed
-                        with bot_join_condition:
-                            bot_join_condition.notify_all()  # Notify all threads
                     log_with_timestamp(f"{bot_name}: Failed to confirm session join after retries.")
-                    return  # Exit if it failed after retries
+                    return
+
+        # Store the driver in the shared map
+        with bot_map_lock:
+            bot_map[bot_id] = driver
+            log_with_timestamp(f"{bot_name}: Bot has joined and stored in bot_map.")
+            with bot_join_condition:
+                bot_join_condition.notify()
 
         # Wait for action signal
         log_with_timestamp(f"{bot_name}: Waiting for action signal.")
@@ -238,16 +232,17 @@ def create_browser_instance(bot_id, link, open_camera):
         log_with_timestamp(f"{bot_name}: Received action signal, performing action.")
         perform_action(bot_id, driver, bot_name)
 
+        # Keep the driver open or close it as needed
+        while not stop_event.is_set():
+            time.sleep(1)
+
     except Exception as e:
         log_with_timestamp(f"{bot_name}: An error occurred - {e}.")
-        with bot_map_lock:
-            bot_map[bot_id] = None  # Mark bot as failed
-            with bot_join_condition:
-                bot_join_condition.notify_all()  # Notify other threads
     finally:
         driver.quit()
         log_with_timestamp(f"{bot_name}: Browser instance closed.")
 
+    log_with_timestamp(f"{bot_name}: Task completed.")
 
 def main():
     file_path = 'session_links.txt'
@@ -256,6 +251,7 @@ def main():
     max_bots = min(len(links), num_bots)
 
     bot_threads = []
+    batch_size = 10  # Process bots in batches of 10
 
     try:
         for i in range(0, max_bots, batch_size):
@@ -271,21 +267,17 @@ def main():
 
             log_with_timestamp(f"Batch {i // batch_size + 1} has been started.")
 
-            # Wait for any bot in the current batch to either join or fail
+            # Wait for all bots in the current batch to join
             with bot_join_condition:
                 while len(bot_map) < batch_end:
-                    successful_bots = sum(1 for bot in bot_map.values() if bot is not None)
-                    if successful_bots >= (batch_end - i):  # Only wait for the number of actual success
-                        break
-                    log_with_timestamp(
-                        f"Waiting for batch {i // batch_size + 1}. {successful_bots} bots have joined successfully.")
+                    log_with_timestamp(f"Waiting for batch {i // batch_size + 1} to join. Currently {len(bot_map)} bots have joined.")
                     bot_join_condition.wait(timeout=5)
 
-            log_with_timestamp(f"Batch {i // batch_size + 1} has completed joining or failing.")
+            log_with_timestamp(f"Batch {i // batch_size + 1} has completed joining.")
 
-        # Signal all successfully joined bots to perform the action
+        # Signal all bots to perform the action
         action_event.set()
-        log_with_timestamp("All bots that successfully joined have been instructed to perform the action.")
+        log_with_timestamp("All bots have been instructed to perform the action.")
 
         # Keep the main thread alive while the bots are running
         while not stop_event.is_set():
@@ -300,7 +292,6 @@ def main():
         log_with_timestamp("All bot threads have been closed.")
     finally:
         log_with_timestamp("Main function exiting.")
-
 
 if __name__ == "__main__":
     main()
