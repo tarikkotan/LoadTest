@@ -115,7 +115,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
             try:
                 time.sleep(5)
                 continue_button = wait.until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.perculus-button')))
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.perculus-button')))
                 continue_button.click()
                 log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
                 break
