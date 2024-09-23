@@ -79,33 +79,33 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         log_with_timestamp(f"{bot_name}: Opened link: {link}")
         time.sleep(1)
         try:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_session_screenshot.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_before_session_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
-                wait.until(EC.visibility_of_element_located((By.ID, "cm")))
+            wait.until(EC.visibility_of_element_located((By.ID, "cm")))
 
-                cookies_button = wait.until(EC.visibility_of_element_located((By.ID, "c-p-bn")))
-                log_with_timestamp(f"{bot_name}: Cookies button is visible.")
+            cookies_button = wait.until(EC.visibility_of_element_located((By.ID, "c-p-bn")))
+            log_with_timestamp(f"{bot_name}: Cookies button is visible.")
 
-                driver.execute_script("arguments[0].scrollIntoView(true);", cookies_button)
-                log_with_timestamp(f"{bot_name}: Scrolled cookies button into view.")
+            driver.execute_script("arguments[0].scrollIntoView(true);", cookies_button)
+            log_with_timestamp(f"{bot_name}: Scrolled cookies button into view.")
 
-                cookies_button = wait.until(EC.element_to_be_clickable((By.ID, "c-p-bn")))
-                log_with_timestamp(f"{bot_name}: Cookies button is clickable.")
+            cookies_button = wait.until(EC.element_to_be_clickable((By.ID, "c-p-bn")))
+            log_with_timestamp(f"{bot_name}: Cookies button is clickable.")
 
-                cookies_button.click()
-                log_with_timestamp(f"{bot_name}: Accepted cookies.")
+            cookies_button.click()
+            log_with_timestamp(f"{bot_name}: Accepted cookies.")
 
-                log_with_timestamp(f"{bot_name}: Clicked the close button on the modal.")
-            except TimeoutException:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_popup_screenshot.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
-            except Exception as e:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_cookies_screenshot.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: An error occurred while clicking the cookies button - {e}")
+            log_with_timestamp(f"{bot_name}: Clicked the close button on the modal.")
+        except TimeoutException:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_popup_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
+        except Exception as e:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_cookies_screenshot.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: An error occurred while clicking the cookies button - {e}")
 
 
         for attempt in range(3):
