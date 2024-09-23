@@ -128,7 +128,7 @@ def create_browser_instance(bot_id, link, screenshot_dir, open_camera):
         if open_camera:
             try:
                 time.sleep(1)
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button-container')))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.perculus-button')))
                 driver.execute_script("document.querySelector('div.perculus-button-container').click();")
                 log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
             except TimeoutException:
