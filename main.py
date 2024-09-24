@@ -103,7 +103,7 @@ def perform_action(bot_id, driver, bot_name):
                 time.sleep(1)  # Reduced sleep time for responsiveness
 
         log_with_timestamp(f"{bot_name}: Ready to vote.")
-        retry_attempts = 5  # Number of retry attempts
+        retry_attempts = 3  # Number of retry attempts
         for attempt in range(retry_attempts):
             try:
                 option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
@@ -117,7 +117,7 @@ def perform_action(bot_id, driver, bot_name):
             except Exception as e:
                 if attempt < retry_attempts - 1:
                     log_with_timestamp(f"{bot_name}: Attempt {attempt + 1} failed, retrying...")
-                    time.sleep(5)
+                    time.sleep(2)  # Optional: wait before retrying
                 else:
                     screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_vote.png")
                     driver.save_screenshot(screenshot_path)
