@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import traceback
 from threading import Thread, Lock, Condition, Event
 from datetime import datetime
 
@@ -124,13 +125,15 @@ def perform_action(bot_id, driver, bot_name):
                 break  # If successful, exit the loop
             except Exception as e:
                 if attempt < retry_attempts - 1:
-                    log_with_timestamp(f"{bot_name}: Attempt {attempt + 1} failed, retrying...")
-                    time.sleep(2)  # Optional: wait before retrying
-                else:
-                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_vote.png")
+                    log_with_timestamp(
+                        f"{bot_name}: Attempt {attempt + 1} failed, retrying... Exception: {type(e).__name__} - {repr(e)}")
+                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_vote_attempt_{attempt}.png")
                     driver.save_screenshot(screenshot_path)
                     log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-                    log_with_timestamp(f"{bot_name}: Failed to vote after {retry_attempts} attempts - {e}")
+                    time.sleep(2)
+                else:
+                    traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+                    log_with_timestamp(f"{bot_name}: Failed to vote after {retry_attempts} attempts.\n{traceback_str}")
 
 
 def create_browser_instance(bot_id, link, open_camera):
