@@ -135,40 +135,44 @@ def perform_action(bot_id, driver, bot_name):
 
 def create_browser_instance(bot_id, link, open_camera):
     global bots_in_session, current_group, bots_completed
+
+    isConfirmed = False
+    isJoined = False
     bot_name = f"Bot_{bot_id}"
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--incognito")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-popup-blocking")
-    chrome_options.add_argument("--disable-translate")
-    chrome_options.add_argument("--no-first-run")
-    chrome_options.add_argument("--disable-background-networking")
-    chrome_options.add_argument("--disable-sync")
-    chrome_options.add_argument("--disable-default-apps")
-    chrome_options.add_argument("--mute-audio")
-    chrome_options.add_argument("--use-fake-device-for-media-stream")
-    chrome_options.add_argument("--use-fake-ui-for-media-stream")
-    chrome_options.add_experimental_option("prefs", {
-        "profile.default_content_setting_values.media_stream_camera": 1,
-        "profile.default_content_setting_values.media_stream_mic": 1,
-        "profile.default_content_setting_values.geolocation": 1,
-        "profile.default_content_setting_values.notifications": 1
-    })
-    chrome_options.add_experimental_option("useAutomationExtension", False)
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-
-    service = Service('/usr/local/bin/chromedriver')
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    wait = WebDriverWait(driver, 15)
-    log_with_timestamp(f"{bot_name}: Created a new browser instance.")
-
     try:
+
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--incognito")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--window-size=1920x1080")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-popup-blocking")
+        chrome_options.add_argument("--disable-translate")
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--disable-background-networking")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-default-apps")
+        chrome_options.add_argument("--mute-audio")
+        chrome_options.add_argument("--use-fake-device-for-media-stream")
+        chrome_options.add_argument("--use-fake-ui-for-media-stream")
+        chrome_options.add_experimental_option("prefs", {
+            "profile.default_content_setting_values.media_stream_camera": 1,
+            "profile.default_content_setting_values.media_stream_mic": 1,
+            "profile.default_content_setting_values.geolocation": 1,
+            "profile.default_content_setting_values.notifications": 1
+        })
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+
+        service = Service('/usr/local/bin/chromedriver')
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        wait = WebDriverWait(driver, 15)
+        log_with_timestamp(f"{bot_name}: Created a new browser instance.")
+
         driver.get(link)
         log_with_timestamp(f"{bot_name}: Opened link: {link}")
         time.sleep(1)
@@ -184,7 +188,6 @@ def create_browser_instance(bot_id, link, open_camera):
             log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
 
-        isJoined = False
         # Click 'Continue anyway' button if it appears
         for attempt in range(3):
             try:
@@ -220,7 +223,6 @@ def create_browser_instance(bot_id, link, open_camera):
 
             # Confirm that the bot has fully joined the session
             confirmation_attempts = 5
-            isConfirmed = False
             for attempt in range(confirmation_attempts):
                 try:
                     # Wait for a reliable indicator of session join
