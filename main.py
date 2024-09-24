@@ -103,19 +103,26 @@ def perform_action(bot_id, driver, bot_name):
                 time.sleep(1)  # Reduced sleep time for responsiveness
 
         log_with_timestamp(f"{bot_name}: Ready to vote.")
-        try:
-            option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
-            option_css.click()
-            log_with_timestamp(f"{bot_name}: Option A selected.")
+        retry_attempts = 3  # Number of retry attempts
+        for attempt in range(retry_attempts):
+            try:
+                option_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.custom-quiz:first-of-type")))
+                option_css.click()
+                log_with_timestamp(f"{bot_name}: Option A selected.")
 
-            send_button_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.answer-button")))
-            send_button_css.click()
-            log_with_timestamp(f"{bot_name}: Sent the answer.")
-        except Exception as e:
-            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_vote.png")
-            driver.save_screenshot(screenshot_path)
-            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-            log_with_timestamp(f"{bot_name}: Failed to vote - {e}")
+                send_button_css = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.answer-button")))
+                send_button_css.click()
+                log_with_timestamp(f"{bot_name}: Sent the answer.")
+                break  # If successful, exit the loop
+            except Exception as e:
+                if attempt < retry_attempts - 1:
+                    log_with_timestamp(f"{bot_name}: Attempt {attempt + 1} failed, retrying...")
+                    time.sleep(2)  # Optional: wait before retrying
+                else:
+                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_vote.png")
+                    driver.save_screenshot(screenshot_path)
+                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                    log_with_timestamp(f"{bot_name}: Failed to vote after {retry_attempts} attempts - {e}")
 
 
 def create_browser_instance(bot_id, link, open_camera):
