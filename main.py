@@ -183,6 +183,7 @@ def create_browser_instance(bot_id, link, open_camera):
             log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
 
+        isJoined = False
         # Click 'Continue anyway' button if it appears
         for attempt in range(3):
             try:
@@ -191,6 +192,7 @@ def create_browser_instance(bot_id, link, open_camera):
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.perculus-button')))
                 continue_button.click()
                 log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
+                isJoined = True
                 break
             except TimeoutException:
                 screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_continue_anyway_button.png")
@@ -198,70 +200,71 @@ def create_browser_instance(bot_id, link, open_camera):
                 log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(f"{bot_name}: 'Continue anyway' button not found. Attempt {attempt + 1}")
 
-        # Click 'Join Session' button via JavaScript if 'open_camera' is True
-        if open_camera:
-            try:
-                time.sleep(1)
-                driver.execute_script("document.querySelector('div.perculus-button-container').click();")
-                log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
-            except Exception as e:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_join_session_button.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-                log_with_timestamp(f"{bot_name}: 'Join Session' button not present - {e}")
-
-        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_debug_session.png")
-        driver.save_screenshot(screenshot_path)
-        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-
-        # Confirm that the bot has fully joined the session and wait for voting interface
-        confirmation_attempts = 5
-        isJoined = False
-        for attempt in range(confirmation_attempts):
-            try:
-                # Wait for a reliable indicator of session join
-                session_confirm_element = wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-action="open-cam"]')))
-                log_with_timestamp(f"{bot_name}: Confirmed session join.")
-
-                isJoined = True
-                break
-            except TimeoutException:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_cannot_confirm_session.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-                log_with_timestamp(
-                    f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation and voting interface.")
-                if attempt == confirmation_attempts - 1:
-                    log_with_timestamp(
-                        f"{bot_name}: Failed to confirm session join and voting interface after retries.")
-                    driver.quit()
-                    return
-
-        # Now, store the driver in the shared map
         if isJoined:
-            with bot_map_lock:
-                bot_map[bot_id] = driver
-                log_with_timestamp(f"{bot_name}: Bot has fully joined and is ready.")
-                with bot_join_condition:
-                    bot_join_condition.notify()
+            # Click 'Join Session' button via JavaScript if 'open_camera' is True
+            if open_camera and isJoined:
+                try:
+                    time.sleep(1)
+                    driver.execute_script("document.querySelector('div.perculus-button-container').click();")
+                    log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
+                except Exception as e:
+                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_join_session_button.png")
+                    driver.save_screenshot(screenshot_path)
+                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                    log_with_timestamp(f"{bot_name}: 'Join Session' button not present - {e}")
 
-            # Calculate group_id based on bot_id
-            group_id = (bot_id - 1) // group_size
-            log_with_timestamp(f"{bot_name}: Waiting for group {group_id} to be activated.")
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_debug_session.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
-            # Wait for the bot's group to be activated
-            with group_condition:
-                while current_group != group_id:
-                    group_condition.wait()
-                log_with_timestamp(f"{bot_name}: Group {group_id} activated.")
+            # Confirm that the bot has fully joined the session and wait for voting interface
+            confirmation_attempts = 5
+            isConfirmed = False
+            if isJoined:
+                for attempt in range(confirmation_attempts):
+                    try:
+                        # Wait for a reliable indicator of session join
+                        session_confirm_element = wait.until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-action="open-cam"]')))
+                        log_with_timestamp(f"{bot_name}: Confirmed session join.")
 
-            # Perform the action after the group is activated
-            perform_action(bot_id, driver, bot_name)
+                        isConfirmed = True
+                        break
+                    except TimeoutException:
+                        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_cannot_confirm_session.png")
+                        driver.save_screenshot(screenshot_path)
+                        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                        log_with_timestamp(
+                            f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation and voting interface.")
+                        if attempt == confirmation_attempts - 1:
+                            log_with_timestamp(
+                                f"{bot_name}: Failed to confirm session join and voting interface after retries.")
+                            driver.quit()
 
-            # Keep the driver open or close it as needed
-            while not stop_event.is_set():
-                time.sleep(1)
+            # Now, store the driver in the shared map
+            if isJoined and isConfirmed:
+                with bot_map_lock:
+                    bot_map[bot_id] = driver
+                    log_with_timestamp(f"{bot_name}: Bot has fully joined and is ready.")
+                    with bot_join_condition:
+                        bot_join_condition.notify()
+
+                # Calculate group_id based on bot_id
+                group_id = (bot_id - 1) // group_size
+                log_with_timestamp(f"{bot_name}: Waiting for group {group_id} to be activated.")
+
+                # Wait for the bot's group to be activated
+                with group_condition:
+                    while current_group != group_id:
+                        group_condition.wait()
+                    log_with_timestamp(f"{bot_name}: Group {group_id} activated.")
+
+                # Perform the action after the group is activated
+                perform_action(bot_id, driver, bot_name)
+
+                # Keep the driver open or close it as needed
+                while not stop_event.is_set():
+                    time.sleep(1)
 
     except Exception as e:
         log_with_timestamp(f"{bot_name}: An error occurred - {e}.")
