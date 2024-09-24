@@ -1,9 +1,9 @@
 {
-    "num_bots": 100,
-    "batch_size": 20,
+    "num_bots": 200,
+    "batch_size": 10,
     "session_duration": 3600,
     "open_camera": false,
     "vote": true,
     "vote_time": "2023-10-01 10:00:00",
-    "group_size": 20
+    "group_size": 100
 }
