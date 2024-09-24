@@ -31,8 +31,10 @@ current_group = -1  # Initialize to -1 so that no group proceeds until set
 group_condition = Condition()
 bot_join_condition = Condition()
 
+
 def log_with_timestamp(message):
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+
 
 # Read configuration from config.json
 with open('config.json', 'r') as config_file:
@@ -52,14 +54,20 @@ vote_time_strp = datetime.strptime(vote_time, "%Y-%m-%d %H:%M:%S")
 screenshot_dir = "screenshots"
 os.makedirs(screenshot_dir, exist_ok=True)
 
+
 def read_links_from_file(file_path):
     with open(file_path, 'r') as file:
         return [line.strip() for line in file.readlines()]
+
 
 def perform_action(bot_id, driver, bot_name):
     global screenshot_dir, open_camera, vote, vote_time_strp
     wait = WebDriverWait(driver, 15)
     max_retries = 3
+
+    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_debug_before_action.png")
+    driver.save_screenshot(screenshot_path)
+    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
     # Open camera if needed
     if open_camera and bot_id <= 15:
@@ -76,9 +84,15 @@ def perform_action(bot_id, driver, bot_name):
                     log_with_timestamp(f"{bot_name}: Opened camera.")
                     break
                 except ElementClickInterceptedException:
+                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_couldn't_open_camera.png")
+                    driver.save_screenshot(screenshot_path)
+                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                     log_with_timestamp(f"{bot_name}: Retrying camera button click.")
                     time.sleep(1)
         except Exception as e:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_couldn't_open_camera.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: Exception while opening camera - {e}")
 
     # Wait until it's time to vote
@@ -98,7 +112,11 @@ def perform_action(bot_id, driver, bot_name):
             send_button_css.click()
             log_with_timestamp(f"{bot_name}: Sent the answer.")
         except Exception as e:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_vote.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: Failed to vote - {e}")
+
 
 def create_browser_instance(bot_id, link, open_camera):
     global bots_in_session, current_group
@@ -148,6 +166,9 @@ def create_browser_instance(bot_id, link, open_camera):
             cookies_button.click()
             log_with_timestamp(f"{bot_name}: Accepted cookies.")
         except TimeoutException:
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_cookies_pop_up.png")
+            driver.save_screenshot(screenshot_path)
+            log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
 
         # Click 'Continue anyway' button if it appears
@@ -160,6 +181,9 @@ def create_browser_instance(bot_id, link, open_camera):
                 log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
                 break
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_continue_anyway_button.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(f"{bot_name}: 'Continue anyway' button not found. Attempt {attempt + 1}")
 
         # Click 'Join Session' button via JavaScript if 'open_camera' is True
@@ -169,7 +193,14 @@ def create_browser_instance(bot_id, link, open_camera):
                 driver.execute_script("document.querySelector('div.perculus-button-container').click();")
                 log_with_timestamp(f"{bot_name}: Clicked 'Join Session' button via JavaScript.")
             except Exception as e:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_join_session_button.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(f"{bot_name}: 'Join Session' button not present - {e}")
+
+        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_debug_session.png")
+        driver.save_screenshot(screenshot_path)
+        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
         # Confirm that the bot has fully joined the session and wait for voting interface
         confirmation_attempts = 5
@@ -186,10 +217,14 @@ def create_browser_instance(bot_id, link, open_camera):
                 log_with_timestamp(f"{bot_name}: Voting interface is ready.")
                 break
             except TimeoutException:
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_cannot_confirm_session.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                 log_with_timestamp(
                     f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation and voting interface.")
                 if attempt == confirmation_attempts - 1:
-                    log_with_timestamp(f"{bot_name}: Failed to confirm session join and voting interface after retries.")
+                    log_with_timestamp(
+                        f"{bot_name}: Failed to confirm session join and voting interface after retries.")
                     driver.quit()
                     return
 
@@ -225,6 +260,7 @@ def create_browser_instance(bot_id, link, open_camera):
 
     log_with_timestamp(f"{bot_name}: Task completed.")
 
+
 def main():
     file_path = 'session_links.txt'
     links = read_links_from_file(file_path)
@@ -250,7 +286,8 @@ def main():
             # Wait for all bots in the current batch to join
             with bot_join_condition:
                 while len(bot_map) < batch_end:
-                    log_with_timestamp(f"Waiting for batch {i // batch_size + 1} to join. Currently {len(bot_map)} bots have joined.")
+                    log_with_timestamp(
+                        f"Waiting for batch {i // batch_size + 1} to join. Currently {len(bot_map)} bots have joined.")
                     bot_join_condition.wait(timeout=5)
 
             log_with_timestamp(f"Batch {i // batch_size + 1} has completed joining.")
@@ -287,6 +324,7 @@ def main():
         log_with_timestamp("All bot threads have been closed.")
     finally:
         log_with_timestamp("Main function exiting.")
+
 
 if __name__ == "__main__":
     main()
