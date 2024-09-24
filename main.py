@@ -136,8 +136,6 @@ def perform_action(bot_id, driver, bot_name):
 def create_browser_instance(bot_id, link, open_camera):
     global bots_in_session, current_group, bots_completed
     bot_name = f"Bot_{bot_id}"
-    # Path to the fake video file (if needed)
-    # fake_video_path = os.path.abspath("/home/ubuntu/LoadTest/test-video.Y4M")
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -220,7 +218,7 @@ def create_browser_instance(bot_id, link, open_camera):
             driver.save_screenshot(screenshot_path)
             log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
 
-            # Confirm that the bot has fully joined the session and wait for voting interface
+            # Confirm that the bot has fully joined the session
             confirmation_attempts = 5
             isConfirmed = False
             for attempt in range(confirmation_attempts):
@@ -242,51 +240,53 @@ def create_browser_instance(bot_id, link, open_camera):
                         log_with_timestamp(
                             f"{bot_name}: Failed to confirm session join after retries.")
                         driver.quit()
-
-            # Now, store the driver in the shared map if confirmed
-            if isConfirmed:
-                with bot_map_lock:
-                    bot_map[bot_id] = driver
-                    log_with_timestamp(f"{bot_name}: Bot has fully joined and is ready.")
-                    with bot_join_condition:
-                        bot_join_condition.notify()
-
-                # Calculate group_id based on bot_id
-                group_id = (bot_id - 1) // group_size
-                log_with_timestamp(f"{bot_name}: Waiting for group {group_id} to be activated.")
-
-                # Wait for the bot's group to be activated
-                with group_condition:
-                    while current_group != group_id:
-                        group_condition.wait()
-                    log_with_timestamp(f"{bot_name}: Group {group_id} activated.")
-
-                # Perform the action after the group is activated
-                perform_action(bot_id, driver, bot_name)
-
-                # Keep the driver open or close it as needed
-                while not stop_event.is_set():
-                    time.sleep(1)
-
         else:
             log_with_timestamp(f"{bot_name}: Failed to join the session.")
 
     except Exception as e:
         log_with_timestamp(f"{bot_name}: An error occurred - {e}.")
-    finally:
-        driver.quit()
-        log_with_timestamp(f"{bot_name}: Browser instance closed.")
 
-        # Increment the bots_completed counter
+    finally:
+        # Increment the bots_completed counter immediately after the joining attempt
         global bots_completed
         with bots_completed_lock:
             bots_completed += 1
-        # Notify the main thread
+        # Notify the main thread that this bot has completed its attempt
         with bot_join_condition:
             bot_join_condition.notify()
 
-    log_with_timestamp(f"{bot_name}: Task completed.")
+    # If the bot successfully joined and confirmed, proceed to perform actions
+    if isJoined and isConfirmed:
+        with bot_map_lock:
+            bot_map[bot_id] = driver
+            log_with_timestamp(f"{bot_name}: Bot has fully joined and is ready.")
 
+        # Calculate group_id based on bot_id
+        group_id = (bot_id - 1) // group_size
+        log_with_timestamp(f"{bot_name}: Waiting for group {group_id} to be activated.")
+
+        # Wait for the bot's group to be activated
+        with group_condition:
+            while current_group != group_id:
+                group_condition.wait()
+            log_with_timestamp(f"{bot_name}: Group {group_id} activated.")
+
+        # Perform the action after the group is activated
+        perform_action(bot_id, driver, bot_name)
+
+        # Keep the driver open or close it as needed
+        while not stop_event.is_set():
+            time.sleep(1)
+
+        # Clean up after stop_event is set
+        driver.quit()
+        log_with_timestamp(f"{bot_name}: Browser instance closed.")
+    else:
+        # Bot did not join; close the driver
+        driver.quit()
+        log_with_timestamp(f"{bot_name}: Browser instance closed.")
+
+    log_with_timestamp(f"{bot_name}: Task completed.")
 
 
 def main():
