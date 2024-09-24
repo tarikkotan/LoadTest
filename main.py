@@ -18,6 +18,9 @@ bots_in_session_lock = Lock()
 bot_start_condition = Condition()
 camera_clicks = 0
 camera_clicks_lock = Lock()
+# Global variables and synchronization primitives
+bots_completed = 0
+bots_completed_lock = Lock()
 
 # Shared dictionary to store bot drivers
 bot_map = {}
@@ -131,7 +134,7 @@ def perform_action(bot_id, driver, bot_name):
 
 
 def create_browser_instance(bot_id, link, open_camera):
-    global bots_in_session, current_group
+    global bots_in_session, current_group, bots_completed
     bot_name = f"Bot_{bot_id}"
     # Path to the fake video file (if needed)
     # fake_video_path = os.path.abspath("/home/ubuntu/LoadTest/test-video.Y4M")
@@ -202,7 +205,7 @@ def create_browser_instance(bot_id, link, open_camera):
 
         if isJoined:
             # Click 'Join Session' button via JavaScript if 'open_camera' is True
-            if open_camera and isJoined:
+            if open_camera:
                 try:
                     time.sleep(1)
                     driver.execute_script("document.querySelector('div.perculus-button-container').click();")
@@ -220,29 +223,28 @@ def create_browser_instance(bot_id, link, open_camera):
             # Confirm that the bot has fully joined the session and wait for voting interface
             confirmation_attempts = 5
             isConfirmed = False
-            if isJoined:
-                for attempt in range(confirmation_attempts):
-                    try:
-                        # Wait for a reliable indicator of session join
-                        session_confirm_element = wait.until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-action="open-cam"]')))
-                        log_with_timestamp(f"{bot_name}: Confirmed session join.")
+            for attempt in range(confirmation_attempts):
+                try:
+                    # Wait for a reliable indicator of session join
+                    session_confirm_element = wait.until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-action="open-cam"]')))
+                    log_with_timestamp(f"{bot_name}: Confirmed session join.")
 
-                        isConfirmed = True
-                        break
-                    except TimeoutException:
-                        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_cannot_confirm_session.png")
-                        driver.save_screenshot(screenshot_path)
-                        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                    isConfirmed = True
+                    break
+                except TimeoutException:
+                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_cannot_confirm_session.png")
+                    driver.save_screenshot(screenshot_path)
+                    log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                    log_with_timestamp(
+                        f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation.")
+                    if attempt == confirmation_attempts - 1:
                         log_with_timestamp(
-                            f"{bot_name}: Retry {attempt + 1}/{confirmation_attempts} - Waiting for session confirmation and voting interface.")
-                        if attempt == confirmation_attempts - 1:
-                            log_with_timestamp(
-                                f"{bot_name}: Failed to confirm session join and voting interface after retries.")
-                            driver.quit()
+                            f"{bot_name}: Failed to confirm session join after retries.")
+                        driver.quit()
 
-            # Now, store the driver in the shared map
-            if isJoined and isConfirmed:
+            # Now, store the driver in the shared map if confirmed
+            if isConfirmed:
                 with bot_map_lock:
                     bot_map[bot_id] = driver
                     log_with_timestamp(f"{bot_name}: Bot has fully joined and is ready.")
@@ -266,19 +268,31 @@ def create_browser_instance(bot_id, link, open_camera):
                 while not stop_event.is_set():
                     time.sleep(1)
 
+        else:
+            log_with_timestamp(f"{bot_name}: Failed to join the session.")
+
     except Exception as e:
         log_with_timestamp(f"{bot_name}: An error occurred - {e}.")
     finally:
         driver.quit()
         log_with_timestamp(f"{bot_name}: Browser instance closed.")
 
+        # Increment the bots_completed counter
+        global bots_completed
+        with bots_completed_lock:
+            bots_completed += 1
+        # Notify the main thread
+        with bot_join_condition:
+            bot_join_condition.notify()
+
     log_with_timestamp(f"{bot_name}: Task completed.")
+
 
 
 def main():
     file_path = 'session_links.txt'
     links = read_links_from_file(file_path)
-    global screenshot_dir, current_group
+    global screenshot_dir, current_group, bots_completed
     max_bots = min(len(links), num_bots)
 
     bot_threads = []
@@ -297,22 +311,19 @@ def main():
 
             log_with_timestamp(f"Batch {i // batch_size + 1} has been started.")
 
-            # Wait for all bots in the current batch to join
+            # Wait for all bots in the current batch to complete their joining attempt
             with bot_join_condition:
-                while len(bot_map) < batch_end:
+                while bots_completed < batch_end:
                     log_with_timestamp(
-                        f"Waiting for batch {i // batch_size + 1} to join. Currently {len(bot_map)} bots have joined.")
+                        f"Waiting for batch {i // batch_size + 1} bots to attempt joining. "
+                        f"Currently {bots_completed} bots have completed their attempt."
+                    )
                     bot_join_condition.wait(timeout=5)
 
-            log_with_timestamp(f"Batch {i // batch_size + 1} has completed joining.")
+            log_with_timestamp(f"Batch {i // batch_size + 1} has completed joining attempts.")
 
-        # Wait for all bots to be fully ready
-        with bot_join_condition:
-            while len(bot_map) < max_bots:
-                log_with_timestamp(f"Waiting for all bots to be ready. Currently {len(bot_map)} bots are ready.")
-                bot_join_condition.wait(timeout=5)
-
-        log_with_timestamp("All bots are fully ready. Proceeding to activate groups.")
+        # Proceed with the bots that have successfully joined
+        log_with_timestamp("Proceeding with the bots that have successfully joined.")
 
         # Activate each group at 1-second intervals
         total_groups = (max_bots + group_size - 1) // group_size
