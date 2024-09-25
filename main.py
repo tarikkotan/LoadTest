@@ -265,8 +265,6 @@ def create_browser_instance(bot_id, link, open_camera):
         log_with_timestamp(f"{bot_name}: An error occurred - {e}.")
 
     finally:
-        # Increment the bots_completed counter immediately after the joining attempt
-        global bots_completed
         with bots_completed_lock:
             bots_completed += 1
         # Notify the main thread that this bot has completed its attempt
