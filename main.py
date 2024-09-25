@@ -5,7 +5,6 @@ import traceback
 from datetime import datetime
 from threading import Thread, Lock, Condition, Event
 
-import psutil
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 from selenium.webdriver.chrome.options import Options
@@ -190,7 +189,7 @@ def create_browser_instance(bot_id, link, open_camera):
                 if driver_attempt < max_driver_retries - 1:
                     log_with_timestamp(
                         f"{bot_name}: Driver creation failed on attempt {driver_attempt + 1}. Retrying...")
-                    time.sleep(2)  # Wait before retrying
+                    time.sleep(5)  # Wait before retrying
                 else:
                     log_with_timestamp(
                         f"{bot_name}: Driver creation failed after {max_driver_retries} attempts. Exception: {e}")
@@ -202,7 +201,7 @@ def create_browser_instance(bot_id, link, open_camera):
 
         driver.get(link)
         log_with_timestamp(f"{bot_name}: Opened link: {link}")
-        time.sleep(1)
+        time.sleep(5)
 
         # Handle cookies pop-up if it appears
         try:
@@ -327,7 +326,7 @@ def main():
                 bot_thread = Thread(target=create_browser_instance, args=(bot_id, link, open_camera))
                 bot_threads.append(bot_thread)
                 bot_thread.start()
-                time.sleep(0.1)
+                time.sleep(1)
 
             log_with_timestamp(f"Batch {i // batch_size + 1} has been started.")
 
