@@ -2,11 +2,12 @@ import json
 import os
 import time
 import traceback
-from threading import Thread, Lock, Condition, Event
 from datetime import datetime
+from threading import Thread, Lock, Condition, Event
 
+import psutil
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
+from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -143,38 +144,61 @@ def create_browser_instance(bot_id, link, open_camera):
     isJoined = False
     bot_name = f"Bot_{bot_id}"
 
+    max_driver_retries = 3
+    driver = None
+    wait = None
+
     try:
+        for driver_attempt in range(max_driver_retries):
+            try:
+                chrome_options = Options()
+                chrome_options.add_argument("--headless")
+                chrome_options.add_argument("--incognito")
+                chrome_options.add_argument("--disable-gpu")
+                chrome_options.add_argument("--no-sandbox")
+                chrome_options.add_argument("--window-size=1920x1080")
+                chrome_options.add_argument("--disable-dev-shm-usage")
+                chrome_options.add_argument("--disable-extensions")
+                chrome_options.add_argument("--disable-popup-blocking")
+                chrome_options.add_argument("--disable-application-cache")
+                chrome_options.add_argument("--disable-infobars")
+                chrome_options.add_argument("--disable-logging")
+                chrome_options.add_argument("--disable-notifications")
+                chrome_options.add_argument("--disable-translate")
+                chrome_options.add_argument("--no-first-run")
+                chrome_options.add_argument("--disable-background-networking")
+                chrome_options.add_argument("--disable-sync")
+                chrome_options.add_argument("--disable-default-apps")
+                chrome_options.add_argument("--mute-audio")
+                chrome_options.add_argument("--use-fake-device-for-media-stream")
+                chrome_options.add_argument("--use-fake-ui-for-media-stream")
+                chrome_options.add_experimental_option("prefs", {
+                    "profile.default_content_setting_values.media_stream_camera": 1,
+                    "profile.default_content_setting_values.media_stream_mic": 1,
+                    "profile.default_content_setting_values.geolocation": 1,
+                    "profile.default_content_setting_values.notifications": 1
+                })
+                chrome_options.add_experimental_option("useAutomationExtension", False)
+                chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--incognito")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--window-size=1920x1080")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-extensions")
-        chrome_options.add_argument("--disable-popup-blocking")
-        chrome_options.add_argument("--disable-translate")
-        chrome_options.add_argument("--no-first-run")
-        chrome_options.add_argument("--disable-background-networking")
-        chrome_options.add_argument("--disable-sync")
-        chrome_options.add_argument("--disable-default-apps")
-        chrome_options.add_argument("--mute-audio")
-        chrome_options.add_argument("--use-fake-device-for-media-stream")
-        chrome_options.add_argument("--use-fake-ui-for-media-stream")
-        chrome_options.add_experimental_option("prefs", {
-            "profile.default_content_setting_values.media_stream_camera": 1,
-            "profile.default_content_setting_values.media_stream_mic": 1,
-            "profile.default_content_setting_values.geolocation": 1,
-            "profile.default_content_setting_values.notifications": 1
-        })
-        chrome_options.add_experimental_option("useAutomationExtension", False)
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-
-        service = Service('/usr/local/bin/chromedriver')
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        wait = WebDriverWait(driver, 15)
-        log_with_timestamp(f"{bot_name}: Created a new browser instance.")
+                service = Service('/usr/local/bin/chromedriver')
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+                wait = WebDriverWait(driver, 60)
+                log_with_timestamp(f"{bot_name}: Created a new browser instance.")
+                break
+            except Exception as e:
+                if driver_attempt < max_driver_retries - 1:
+                    log_with_timestamp(
+                        f"{bot_name}: Driver creation failed on attempt {driver_attempt + 1}. Retrying...")
+                    time.sleep(2)  # Wait before retrying
+                else:
+                    log_with_timestamp(
+                        f"{bot_name}: Driver creation failed after {max_driver_retries} attempts. Exception: {e}")
+                    with bots_completed_lock:
+                        bots_completed += 1
+                    with bot_join_condition:
+                        bot_join_condition.notify()
+                    return
 
         driver.get(link)
         log_with_timestamp(f"{bot_name}: Opened link: {link}")
@@ -191,21 +215,11 @@ def create_browser_instance(bot_id, link, open_camera):
             log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: No cookies pop-up appeared.")
 
-        # Click 'Continue anyway' button if it appears
-        for attempt in range(3):
-            try:
-                time.sleep(1)
-                continue_button = wait.until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.perculus-button')))
-                continue_button.click()
-                log_with_timestamp(f"{bot_name}: Clicked 'Continue anyway' button.")
-                isJoined = True
-                break
-            except TimeoutException:
-                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_no_continue_anyway_button.png")
-                driver.save_screenshot(screenshot_path)
-                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
-                log_with_timestamp(f"{bot_name}: 'Continue anyway' button not found. Attempt {attempt + 1}")
+        if click_element_with_retries(driver, wait, (By.CSS_SELECTOR, 'div.perculus-button'), retries=5, delay=2,
+                                      bot_name=bot_name):
+            isJoined = True
+        else:
+            isJoined = False
 
         if isJoined:
             # Click 'Join Session' button via JavaScript if 'open_camera' is True
@@ -313,6 +327,7 @@ def main():
                 bot_thread = Thread(target=create_browser_instance, args=(bot_id, link, open_camera))
                 bot_threads.append(bot_thread)
                 bot_thread.start()
+                time.sleep(0.1)
 
             log_with_timestamp(f"Batch {i // batch_size + 1} has been started.")
 
@@ -354,6 +369,27 @@ def main():
         log_with_timestamp("All bot threads have been closed.")
     finally:
         log_with_timestamp("Main function exiting.")
+
+
+def click_element_with_retries(driver, wait, by_locator, retries=5, delay=2, bot_name="Bot"):
+    for attempt in range(retries):
+        try:
+            element = wait.until(EC.element_to_be_clickable(by_locator))
+            element.click()
+            log_with_timestamp(f"{bot_name}: Clicked element {by_locator}.")
+            return True
+        except Exception as e:
+            if attempt < retries - 1:
+                log_with_timestamp(
+                    f"{bot_name}: Failed to click element {by_locator} on attempt {attempt + 1}. Retrying... Exception: {e}")
+                time.sleep(delay)
+            else:
+                log_with_timestamp(
+                    f"{bot_name}: Failed to click element {by_locator} after {retries} attempts. Exception: {e}")
+                screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_failed_to_click_element_{attempt}.png")
+                driver.save_screenshot(screenshot_path)
+                log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+                return False
 
 
 if __name__ == "__main__":
