@@ -262,7 +262,8 @@ def create_browser_instance(bot_id, link, open_camera):
             log_with_timestamp(f"{bot_name}: Failed to join the session.")
 
     except Exception as e:
-        log_with_timestamp(f"{bot_name}: An error occurred - {e}.")
+        traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+        log_with_timestamp(f"{bot_name}: An error occurred:\n{traceback_str}")
 
     finally:
         with bots_completed_lock:
@@ -319,12 +320,22 @@ def main():
 
             # Start the current batch of bots
             for bot_id in range(i + 1, batch_end + 1):
-                link = links[bot_id - 1]  # Adjust index for 0-based list indexing
-                log_with_timestamp(f"Starting Bot {bot_id} for link: {link}")
-                bot_thread = Thread(target=create_browser_instance, args=(bot_id, link, open_camera))
-                bot_threads.append(bot_thread)
-                bot_thread.start()
-                time.sleep(1)
+                try:
+                    link = links[bot_id - 1]  # Adjust index for 0-based list indexing
+                    log_with_timestamp(f"Starting Bot {bot_id} for link: {link}")
+                    bot_thread = Thread(target=create_browser_instance, args=(bot_id, link, open_camera))
+                    bot_threads.append(bot_thread)
+                    bot_thread.start()
+                except Exception as e:
+                    traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+                    log_with_timestamp(f"Exception occurred while starting Bot {bot_id}:\n{traceback_str}")
+                    # Increment bots_completed counter
+                    with bots_completed_lock:
+                        bots_completed += 1
+                    # Notify the bot_join_condition
+                    with bot_join_condition:
+                        bot_join_condition.notify()
+                    continue  # Move on to the next bot
 
             log_with_timestamp(f"Batch {i // batch_size + 1} has been started.")
 
