@@ -76,14 +76,16 @@ def perform_action(bot_id, driver, bot_name):
     # Open camera if needed
     if open_camera and bot_id <= 15:
         try:
-            time.sleep(2)
-            camera_button = wait.until(EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, 'div.footer-button.icon-background-image[data-action="open-cam"]')))
+            time.sleep(5)
+            camera_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.footer-button.icon-background-image[data-action="open-cam"]')))
+
+            # Butonu görünür hale getirin
             driver.execute_script("arguments[0].scrollIntoView(true);", camera_button)
 
+            # JavaScript ile doğrudan tıklama deneyin
             for _ in range(5):
                 try:
-                    camera_button.click()
+                    driver.execute_script("arguments[0].click();", camera_button)
                     time.sleep(3)
                     log_with_timestamp(f"{bot_name}: Opened camera.")
                     break
