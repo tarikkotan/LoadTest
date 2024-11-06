@@ -2,6 +2,7 @@ import json
 import os
 import time
 import traceback
+import random
 from datetime import datetime
 from threading import Thread, Lock, Condition, Event
 
@@ -10,6 +11,7 @@ from selenium.common.exceptions import TimeoutException, ElementClickIntercepted
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys  # Added for key presses
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -51,6 +53,7 @@ open_camera = config_data['open_camera']
 vote = config_data['vote']
 vote_time = config_data['vote_time']
 group_size = config_data.get('group_size', 20)  # Read group_size from config
+whiteboard = config_data.get('whiteboard', False)  # Read whiteboard parameter
 
 vote_time_strp = datetime.strptime(vote_time, "%Y-%m-%d %H:%M:%S")
 
@@ -65,7 +68,7 @@ def read_links_from_file(file_path):
 
 
 def perform_action(bot_id, driver, bot_name):
-    global screenshot_dir, open_camera, vote, vote_time_strp
+    global screenshot_dir, open_camera, vote, vote_time_strp, whiteboard
     wait = WebDriverWait(driver, 15)
     max_retries = 3
 
@@ -79,10 +82,10 @@ def perform_action(bot_id, driver, bot_name):
             time.sleep(5)
             camera_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.footer-button.icon-background-image[data-action="open-cam"]')))
 
-            # Butonu görünür hale getirin
+            # Make the button visible
             driver.execute_script("arguments[0].scrollIntoView(true);", camera_button)
 
-            # JavaScript ile doğrudan tıklama deneyin
+            # Try clicking via JavaScript
             for _ in range(5):
                 try:
                     driver.execute_script("arguments[0].click();", camera_button)
@@ -90,13 +93,13 @@ def perform_action(bot_id, driver, bot_name):
                     log_with_timestamp(f"{bot_name}: Opened camera.")
                     break
                 except ElementClickInterceptedException:
-                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_couldn't_open_camera.png")
+                    screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_couldnt_open_camera.png")
                     driver.save_screenshot(screenshot_path)
                     log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
                     log_with_timestamp(f"{bot_name}: Retrying camera button click.")
                     time.sleep(1)
         except Exception as e:
-            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_couldn't_open_camera.png")
+            screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_couldnt_open_camera.png")
             driver.save_screenshot(screenshot_path)
             log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
             log_with_timestamp(f"{bot_name}: Exception while opening camera - {e}")
@@ -136,6 +139,83 @@ def perform_action(bot_id, driver, bot_name):
                 else:
                     traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
                     log_with_timestamp(f"{bot_name}: Failed to vote after {retry_attempts} attempts.\n{traceback_str}")
+
+    # If whiteboard is True, perform drawing
+    if whiteboard:
+        perform_drawing(bot_id, driver, bot_name)
+
+
+def perform_drawing(bot_id, driver, bot_name):
+    import random  # Ensure the random module is imported
+    wait = WebDriverWait(driver, 30)
+    try:
+        # Step 1: Wait for the whiteboard to be visible
+        time.sleep(10)
+        log_with_timestamp(f"{bot_name}: Waiting for the whiteboard to be visible.")
+        canvas = wait.until(EC.visibility_of_element_located((By.XPATH, "//div[@class='puppy-app-container']")))
+        log_with_timestamp(f"{bot_name}: Whiteboard is visible.")
+
+        # Get canvas dimensions via JavaScript to ensure accuracy
+        canvas_bounds = driver.execute_script("return arguments[0].getBoundingClientRect();", canvas)
+        canvas_width = canvas_bounds['width']
+        canvas_height = canvas_bounds['height']
+        log_with_timestamp(f"{bot_name}: Canvas dimensions - width: {canvas_width}, height: {canvas_height}")
+
+        # Set maximum drawing size based on canvas dimensions
+        max_drawing_size = min(100, canvas_width / 2 - 1, canvas_height / 2 - 1)
+
+        # Step 2: Generate random starting position within safe bounds
+        start_x = random.uniform(max_drawing_size, canvas_width - max_drawing_size)
+        start_y = random.uniform(max_drawing_size, canvas_height - max_drawing_size)
+
+        # Move to the random starting position and click to focus
+        action_chains = webdriver.ActionChains(driver)
+        action_chains.move_to_element_with_offset(canvas, int(start_x), int(start_y))
+        action_chains.click()
+        action_chains.perform()
+        log_with_timestamp(f"{bot_name}: Clicked at random position ({start_x}, {start_y}) on the canvas.")
+
+        # Step 3: Press the 'x' key to select the pen tool
+        action_chains.reset_actions()
+        action_chains.send_keys('x')
+        action_chains.perform()
+        log_with_timestamp(f"{bot_name}: Pressed 'x' to select the pen tool.")
+
+        # Step 4: Calculate drawing offsets within bounds
+        # Calculate maximum allowable offsets
+        max_offset_right = canvas_width - start_x - 1
+        max_offset_down = canvas_height - start_y - 1
+        max_offset_left = start_x - 1
+        max_offset_up = start_y - 1
+
+        # Set drawing size and limit offsets to prevent out-of-bounds movement
+        drawing_size = 200  # Adjust the size as needed for larger drawings
+        offset_right = min(drawing_size, max_offset_right)
+        offset_down = min(drawing_size, max_offset_down)
+        offset_left = -min(drawing_size, max_offset_left)
+        offset_up = -min(drawing_size, max_offset_up)
+
+        # Perform drawing within the canvas bounds
+        action_chains.reset_actions()
+        action_chains.move_to_element_with_offset(canvas, int(start_x), int(start_y))
+        action_chains.click_and_hold()
+        action_chains.move_by_offset(offset_right, 0)
+        action_chains.move_by_offset(0, offset_down)
+        action_chains.move_by_offset(offset_left, 0)
+        action_chains.move_by_offset(0, offset_up)
+        action_chains.release()
+        action_chains.perform()
+        log_with_timestamp(f"{bot_name}: Performed larger drawing on the whiteboard.")
+
+    except TimeoutException:
+        log_with_timestamp(f"{bot_name}: Whiteboard did not become visible in time.")
+    except Exception as e:
+        screenshot_path = os.path.join(screenshot_dir, f"{bot_name}_drawing_exception.png")
+        driver.save_screenshot(screenshot_path)
+        log_with_timestamp(f"{bot_name}: Exception during drawing - {e}")
+        log_with_timestamp(f"{bot_name}: Screenshot saved to {screenshot_path}")
+
+
 
 
 def create_browser_instance(bot_id, link, open_camera):
