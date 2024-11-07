@@ -3,7 +3,7 @@
     "batch_size": 25,
     "session_duration": 3600,
     "open_camera": false,
-    "vote": true,
+    "vote": false,
     "vote_time": "2024-09-27 13:10:00",
     "group_size": 50,
     "whiteboard": true
